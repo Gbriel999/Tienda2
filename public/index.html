@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tienda de Juegos</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" />
+</head>
+
+<body>
+  <div class="container mt-5">
+
+    <!-- FORMULARIO DE LOGIN -->
+    <div id="loginSection">
+      <h2>Login</h2>
+      <input type="text" id="email" class="form-control mb-2" placeholder="email" />
+      <input type="password" id="password" class="form-control mb-2" placeholder="password" />
+      <button onclick="login()" class="btn btn-primary">Iniciar Sesión</button>
+    </div>
+
+    <!-- FORMULARIO DE AGREGAR JUEGO -->
+    <div id="AgregarJuego" style="display: none;">
+      <h2 class="mt-4">Agregar Juego</h2>
+      <input type="text" class="form-control mb-2" id="nombre" placeholder="Nombre" />
+      <input type="text" class="form-control mb-2" id="precio" placeholder="Precio" />
+      <input type="text" class="form-control mb-2" id="stock" placeholder="Stock" />
+      <button onclick="nuevoJuego()" id="agregar" class="btn btn-success">Agregar</button>
+      <button onclick="editarJuego()" id="editar" class="btn btn-info">Editar</button>
+      <button onclick="logout()" class="btn btn-danger ml-2">Cerrar sesión</button>
+    </div>
+
+    <!-- LISTADO DE JUEGOS -->
+    <div id="ListaJuegos" style="display: none;">
+      <h2 class="mt-4">Lista de Juegos</h2>
+      <table class="table table-dark">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Precio</th>
+            <th>Stock</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script>
+    const url = "/juegos";
+    const tbody = document.getElementById("cuerpo");
+    const nombre = document.getElementById("nombre");
+    const precio = document.getElementById("precio");
+    const stock = document.getElementById("stock");
+
+    // Al cargar la página, revisa si hay token guardado
+    const token = localStorage.getItem("token");
+
+    if (token) {
+      mostrarSeccionesProtegidas();
+      getData();
+    }
+
+    function mostrarSeccionesProtegidas() {
+      document.getElementById("AgregarJuego").style.display = "block";
+      document.getElementById("ListaJuegos").style.display = "block";
+      document.getElementById("loginSection").style.display = "none";
+    }
+
+    async function login() {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!email || !password) {
+        alert("Por favor ingresa email y password");
+        return;
+      }
+
+      try {
+        const res = await axios.post("/auth/login", { email, password });
+        console.log("Respuesta login:", res);
+
+        if (res.status === 200 && res.data.token) {
+          localStorage.setItem("token", res.data.token);
+          mostrarSeccionesProtegidas();
+          getData();
+        } else {
+          alert("Credenciales incorrectas");
+        }
+      } catch (err) {
+        // Mostrar error exacto para depurar
+        if (err.response) {
+          console.error("Error en respuesta:", err.response.data);
+          alert(err.response.data.message || "Error en login");
+        } else {
+          console.error("Error desconocido:", err);
+          alert("Error en login");
+        }
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("token");
+      location.reload();
+    }
+
+    async function getData() {
+      try {
+        const res = await axios.get(url, {
+          headers: {
+            Authorization: "Bearer " + localStorage.getItem("token")
+          }
+        });
+        const juegos = res.data;
+        tbody.innerHTML = "";
+        juegos.forEach((c, i) => {
+          tbody.innerHTML += `
+            <tr>
+              <td>${c.id}</td>
+              <td>${c.nombre}</td>
+              <td>${c.precio}</td>
+              <td>${c.stock}</td>
+              <td>
+                <button class="btn btn-warning" onclick="prepararJuego(${i},'${c.id}')">Editar</button>
+                <button class="btn btn-danger" onclick="eliminarJuego(${i},'${c.id}')">Eliminar</button>
+              </td>
+            </tr>`;
+        });
+      } catch (error) {
+        console.error('Error al obtener datos:', error);
+        alert('Error al cargar juegos. Intenta iniciar sesión de nuevo.');
+        logout();
+      }
+    }
+
+    function nuevoJuego() {
+      const data = {
+        nombre: nombre.value.trim(),
+        precio: precio.value.trim(),
+        stock: stock.value.trim(),
+      };
+      axios.post(url, data, {
+        headers: {
+          Authorization: "Bearer " + localStorage.getItem("token"),
+        },
+      }).then(() => {
+        getData();
+        limpiarFormulario();
+      }).catch(err => {
+        alert("Error al agregar juego");
+        console.error(err);
+      });
+    }
+
+    function eliminarJuego(i, id) {
+      axios.delete(`${url}/${id}`, {
+        headers: {
+          Authorization: "Bearer " + localStorage.getItem("token"),
+        },
+      }).then(() => getData())
+        .catch(err => {
+          alert("Error al eliminar juego");
+          console.error(err);
+        });
+    }
+
+    function prepararJuego(i, id) {
+      nombre.value = tbody.rows[i].cells[1].innerText;
+      precio.value = tbody.rows[i].cells[2].innerText;
+      stock.value = tbody.rows[i].cells[3].innerText;
+      document.getElementById("editar").setAttribute("onclick", `editarJuego('${id}')`);
+    }
+
+    function editarJuego(id) {
+      const data = {
+        nombre: nombre.value.trim(),
+        precio: precio.value.trim(),
+        stock: stock.value.trim(),
+      };
+      axios.put(`${url}/${id}`, data, {
+        headers: {
+          Authorization: "Bearer " + localStorage.getItem("token"),
+        },
+      }).then(() => {
+        getData();
+        limpiarFormulario();
+      }).catch(err => {
+        alert("Error al editar juego");
+        console.error(err);
+      });
+    }
+
+    function limpiarFormulario() {
+      nombre.value = '';
+      precio.value = '';
+      stock.value = '';
+      document.getElementById("editar").removeAttribute("onclick");
+    }
+  </script>
+</body>
+
+</html>
