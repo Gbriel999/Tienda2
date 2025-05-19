@@ -1,0 +1,25 @@
+{
+  "name": "g51_clase_api_avanzada",
+  "author": "Raul Farias S",
+  "version": "0.0.1",
+  "description": "Proyecto base - clase: API avanzada",
+  "main": "index.js",
+  "license": "MIT",
+  "type": "module",
+  "eslintConfig": {
+    "extends": [
+      "./node_modules/standard/eslintrc.json"
+    ]
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "standard": "^17.1.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0"
+  }
+}

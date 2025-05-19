@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tienda de Juegos</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" />
+</head>
+
+<body>
+  <div class="container mt-5">
+    <!-- LOGIN -->
+    <div id="loginSection">
+      <h2>Iniciar Sesión</h2>
+      <input type="email" id="email" class="form-control mb-2" placeholder="Email" />
+      <input type="password" id="pass" class="form-control mb-2" placeholder="Contraseña" />
+      <button onclick="login()" class="btn btn-primary">Iniciar Sesión</button>
+    </div>
+
+    <!-- FORMULARIO AGREGAR JUEGO -->
+    <div id="AgregarJuego" style="display: none;">
+      <h2 class="mt-4">Agregar Juego</h2>
+      <input type="text" class="form-control mb-2" id="nombre" placeholder="Nombre" />
+      <input type="text" class="form-control mb-2" id="precio" placeholder="Precio" />
+      <input type="text" class="form-control mb-2" id="stock" placeholder="Stock" />
+      <button onclick="nuevoJuego()" id="agregar" class="btn btn-success">Agregar</button>
+      <button onclick="editarJuego()" id="editar" class="btn btn-info">Editar</button>
+      <button onclick="logout()" class="btn btn-danger ml-2">Cerrar sesión</button>
+    </div>
+
+    <!-- LISTADO DE JUEGOS -->
+    <div id="ListaJuegos" style="display: none;">
+      <h2 class="mt-4">Lista de Juegos</h2>
+      <table class="table table-dark">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Precio</th>
+            <th>Stock</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- AXIOS -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+  <script>
+    const url = "/juegos";
+    const tbody = document.getElementById("cuerpo");
+    const nombre = document.getElementById("nombre");
+    const precio = document.getElementById("precio");
+    const stock = document.getElementById("stock");
+    let idEditando = null; // Guarda el ID del juego que se está editando
+
+    function mostrarSecciones() {
+      document.getElementById("AgregarJuego").style.display = "block";
+      document.getElementById("ListaJuegos").style.display = "block";
+      document.getElementById("loginSection").style.display = "none";
+    }
+
+    async function login() {
+      const email = document.getElementById("email").value.trim();
+      const pass = document.getElementById("pass").value;
+
+      if (!email || !pass) {
+        alert("Por favor ingresa email y contraseña");
+        return;
+      }
+
+      try {
+        const res = await axios.post("/login", { email, pass });
+        if (res.status === 200 && res.data.message.token) {
+          localStorage.setItem("token", res.data.message.token);
+          mostrarSecciones();
+          getData();
+        } else {
+          alert("Credenciales incorrectas");
+        }
+      } catch (err) {
+        alert("Credenciales incorrectas");
+        console.error(err);
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("token");
+      location.reload();
+    }
+
+    async function getData() {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("No estás autenticado");
+        logout();
+        return;
+      }
+
+      try {
+        const res = await axios.get(url, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const juegos = res.data.message || [];
+        tbody.innerHTML = "";
+
+        juegos.forEach((c, i) => {
+          tbody.innerHTML += `
+            <tr>
+              <td>${c.id}</td>
+              <td>${c.nombre}</td>
+              <td>${c.precio}</td>
+              <td>${c.stock}</td>
+              <td>
+                <button class="btn btn-warning" onclick="prepararJuego(${i}, '${c.id}')">Editar</button>
+                <button class="btn btn-danger" onclick="eliminarJuego('${c.id}')">Eliminar</button>
+              </td>
+            </tr>`;
+        });
+      } catch (error) {
+        console.error("Error al obtener datos:", error);
+        alert("Error al cargar juegos.");
+      }
+    }
+
+    function limpiarFormulario() {
+      nombre.value = "";
+      precio.value = "";
+      stock.value = "";
+      idEditando = null;
+    }
+
+    async function nuevoJuego() {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("No estás autenticado");
+        logout();
+        return;
+      }
+
+      const data = {
+        nombre: nombre.value.trim(),
+        precio: precio.value.trim(),
+        stock: stock.value.trim(),
+      };
+
+      try {
+        await axios.post(url, data, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        getData();
+        limpiarFormulario();
+      } catch (err) {
+        alert("Error al agregar juego");
+        console.error(err);
+      }
+    }
+
+    async function eliminarJuego(id) {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("No estás autenticado");
+        logout();
+        return;
+      }
+
+      try {
+        await axios.delete(`${url}/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        getData();
+      } catch (err) {
+        alert("Error al eliminar juego");
+        console.error(err);
+      }
+    }
+
+    function prepararJuego(i, id) {
+      nombre.value = tbody.rows[i].cells[1].innerText;
+      precio.value = tbody.rows[i].cells[2].innerText;
+      stock.value = tbody.rows[i].cells[3].innerText;
+      idEditando = id;
+    }
+
+    async function editarJuego() {
+      if (!idEditando) {
+        alert("Selecciona un juego para editar");
+        return;
+      }
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("No estás autenticado");
+        logout();
+        return;
+      }
+
+      const data = {
+        nombre: nombre.value.trim(),
+        precio: precio.value.trim(),
+        stock: stock.value.trim(),
+      };
+
+      try {
+        await axios.put(`${url}/${idEditando}`, data, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        getData();
+        limpiarFormulario();
+      } catch (err) {
+        alert("Error al editar juego");
+        console.error(err);
+      }
+    }
+  </script>
+</body>
+
+</html>
